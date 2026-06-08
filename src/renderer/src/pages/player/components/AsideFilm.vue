@@ -555,7 +555,7 @@ const normalizePushUrl = (url: string): string => {
   return url;
 };
 
-const fetchPushEpisodes = async (pushUrl: string): Promise<{ text: string; link: string }[] | null> => {
+const fetchPushEpisodes = async (pushUrl: string): Promise<{ text: string; link: string; isPush: boolean }[] | null> => {
   const pushSite = getPushAgentSite();
   if (!pushSite) {
     console.error('[Push] 未找到 push_agent 站点');
@@ -572,6 +572,7 @@ const fetchPushEpisodes = async (pushUrl: string): Promise<{ text: string; link:
       return episodes.map((ep: any) => ({
         ...ep,
         text: `${ep.text}`,
+        isPush: true,  // 标记来自推送
       }));
     }
   }
@@ -654,7 +655,7 @@ const handleSwitchSeason = async (item: ICmsInfoEpisode, index: number = -1) => 
       
       // 完全替换整个 vod_episode 对象，只保留当前推送链接解析出来的剧集
       const newEpisode: Record<string, any[]> = {
-        [currentLine]: realEpisodes
+        [currentLine]: realEpisodes  // realEpisodes 已经包含 isPush: true
       };
       
       infoConf.value.vod_episode = newEpisode;
@@ -840,6 +841,89 @@ const getDirectPlayUrl = async (
   quality: Array<string | number>;
   mediaType: string;
 }> => {
+  // ========== 处理来自推送的剧集（通过 isPush 标记识别）==========
+  if ((item as any).isPush === true) {
+    const pushSite = getPushAgentSite();
+    if (!pushSite) {
+      throw new Error('未配置网盘推送源(push_agent)');
+    }
+    console.log('[Push] 使用 push_agent 播放接口，加密字符串:', item.link);
+    
+    // 直接调用 push_agent 的播放接口
+    const playRes = await fetchCmsPlay({
+      uuid: pushSite.id,
+      play: item.link,
+      flag: active.value.filmSource,
+    });
+    
+    if (!playRes.url) throw new Error('No Play URL');
+    
+    // 复用原有的 checkPlayable 函数定义
+    const checkPlayable = async (
+      url: string,
+      headers: Record<string, any> = {},
+    ): Promise<{
+      url: string;
+      headers: Record<string, any>;
+      quality: Array<string | number>;
+      mediaType: string;
+    } | null> => {
+      const mediaType = await mediaUtils.checkMediaType(url, headers);
+      if (mediaType === 'unknown') return null;
+      return { url, headers, mediaType, quality: [] };
+    };
+    
+    // Direct play
+    if (playRes.parse === 0 && playRes.jx !== 1) {
+      if (playRes.url.startsWith(PROXY_API)) {
+        const { searchParams } = new URL(playRes.url);
+        const proxyParams = Object.fromEntries(searchParams.entries());
+        const proxyData = await fetchCmsProxy({ uuid: pushSite.id, ...proxyParams });
+        await setProxy({ url: proxyParams.url, text: proxyData });
+      }
+      const directed = await checkPlayable(playRes.url, playRes.headers);
+      if (!isNil(directed)) {
+        return { ...directed, quality: playRes.quality };
+      }
+    }
+    
+    // Parse play
+    if (playRes.parse === 1 && playRes.jx !== 1) {
+      const parsed = await checkPlayable(playRes.url, playRes.headers);
+      if (!isNil(parsed)) {
+        return { ...parsed, quality: playRes.quality };
+      }
+    }
+    
+    // Jx play
+    if (playRes.jx === 1 || !isArrayEmpty(activeAnalyzeList.value)) {
+      const parse = activeAnalyzeList.value.find((p: IModels['analyze']) => p.id === active.value.analyzeId);
+      if (isNil(parse)) throw new Error('No Active Analyze');
+      const jxResp = await fetchParse({ id: parse.id, url: playRes.url });
+      const jxed = await checkPlayable(jxResp.url, jxResp.headers);
+      if (jxed) return jxed;
+    }
+    
+    // Sniffer play
+    if (isHttp(playRes.url)) {
+      const sniffResp = await cdpSnifferMedia({
+        url: playRes.url,
+        options: {
+          runScript: playRes.script.runScript,
+          initScript: playRes.script.initScript,
+          customRegex: playRes.script.customRegex,
+          snifferExclude: playRes.script.snifferExclude,
+          headers: playRes.headers,
+        },
+      });
+      const sniffed = await checkPlayable(sniffResp.url, playRes.headers);
+      if (!isNil(sniffed)) return sniffed;
+    }
+    
+    throw new Error('No Play URL');
+  }
+  
+  // ========== 原有正常播放逻辑 ==========
   const playRes = await fetchCmsPlay({
     uuid: extraConf.value.active.id,
     play: item.link,
@@ -1090,7 +1174,7 @@ const setup = async () => {
   flimEpisode = { text: filmIndex.split('$')[0], link: filmIndex.split('$')[1] };
 
   await getAnalyzeConfig();
-  
+
   // 检查当前要播放的剧集是否为 push:// 链接
   const currentFirstLink = infoConf.value.vod_episode?.[filmSource]?.[0]?.link;
   if (currentFirstLink && currentFirstLink.startsWith('push://')) {
