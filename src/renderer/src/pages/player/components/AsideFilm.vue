@@ -543,13 +543,11 @@ const reverseOrderIndex = (current: number) => {
 };
 
 // ==================== 推送链接辅助函数 ====================
-// 获取 push_agent 站点配置（使用 toRaw 解包 Proxy）
 const getPushAgentSite = () => {
   const rawExtra = toRaw(props.store.data.extra);
   return rawExtra?.site?.find((s: any) => s.key === 'push_agent');
 };
 
-// 规范化推送链接：移除 push:// 前缀并进行 URL 解码
 const normalizePushUrl = (url: string): string => {
   if (url.startsWith('push://')) {
     return decodeURIComponent(url.substring(7));
@@ -557,7 +555,6 @@ const normalizePushUrl = (url: string): string => {
   return url;
 };
 
-// 请求推送详情，获取真实剧集列表
 const fetchPushEpisodes = async (pushUrl: string): Promise<{ text: string; link: string }[] | null> => {
   const pushSite = getPushAgentSite();
   if (!pushSite) {
@@ -646,7 +643,6 @@ const handleSwitchSeason = async (item: ICmsInfoEpisode, index: number = -1) => 
   const currentLine = active.value.filmSource;
   
   // ========== 处理 push:// 网盘推送链接 ==========
-  // index === -1 表示自动连播，不需要进行数组替换
   if (index !== -1 && item.link && item.link.startsWith('push://')) {
     const loadingMsg = MessagePlugin.loading('正在解析网盘内容，请稍候...', 0);
     
@@ -656,35 +652,25 @@ const handleSwitchSeason = async (item: ICmsInfoEpisode, index: number = -1) => 
         throw new Error('解析失败，未获取到剧集列表');
       }
       
-      const currentEpisodes = infoConf.value.vod_episode?.[currentLine];
-      if (!currentEpisodes || !Array.isArray(currentEpisodes)) {
-        throw new Error('当前线路数据异常');
-      }
-      
-      // 替换当前项为真实剧集列表
-      const newEpisodes = [
-        ...currentEpisodes.slice(0, index),
-        ...realEpisodes,
-        ...currentEpisodes.slice(index + 1)
-      ];
-      
-      // 强制触发响应式更新
-      infoConf.value.vod_episode = {
-        ...infoConf.value.vod_episode,
-        [currentLine]: newEpisodes
+      // 完全替换整个 vod_episode 对象，只保留当前推送链接解析出来的剧集
+      const newEpisode: Record<string, any[]> = {
+        [currentLine]: realEpisodes
       };
+      
+      infoConf.value.vod_episode = newEpisode;
       
       // 同步更新父组件 store
       emits('update', { data: { info: infoConf.value, extra: extraConf.value } });
       
-      // 更新线路列表
-      lineList.value = Object.keys(infoConf.value.vod_episode).map((key) => ({
+      // 更新线路列表（只剩当前这一个线路）
+      lineList.value = Object.keys(newEpisode).map((key) => ({
         type_id: key,
         type_name: key
       }));
       
       // 播放第一集
       const firstReal = realEpisodes[0];
+      active.value.filmSource = currentLine;
       active.value.filmIndex = `${firstReal.text}$${firstReal.link}`;
       active.value.watch = false;
       
@@ -696,6 +682,7 @@ const handleSwitchSeason = async (item: ICmsInfoEpisode, index: number = -1) => 
       };
       
       MessagePlugin.close(loadingMsg);
+      MessagePlugin.success(`解析成功，共 ${realEpisodes.length} 个剧集`);
       await callPlay(firstReal);
       return;
       
@@ -708,6 +695,13 @@ const handleSwitchSeason = async (item: ICmsInfoEpisode, index: number = -1) => 
   }
   
   // ========== 原有正常播放逻辑 ==========
+  active.value.transitioning = true;
+
+  processConf.value = {
+    currentTime: 0,
+    duration: 0,
+  };
+
   active.value.filmIndex = `${item.text}$${item.link}`;
   active.value.watch = false;
 
@@ -1077,13 +1071,19 @@ const setup = async () => {
   let flimEpisode = episode[filmSource]?.[0];
 
   if (!isObject(flimEpisode) || isObjectEmpty(flimEpisode)) return;
+
   let filmIndex = `${flimEpisode.text}$${flimEpisode.link}`;
 
-  lineList.value = episodeKeys.map((key) => ({ type_id: key, type_name: key }));
+  lineList.value = episodeKeys.map((key) => ({
+    type_id: key,
+    type_name: key,
+  }));
 
   await getHistoryData();
+
   if (historyData.value.siteSource && episode[historyData.value.siteSource]) filmSource = historyData.value.siteSource;
   if (historyData.value.videoIndex) filmIndex = historyData.value.videoIndex;
+
   active.value.filmSource = filmSource;
   active.value.filmIndex = filmIndex;
 
