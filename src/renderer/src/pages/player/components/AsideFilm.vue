@@ -854,10 +854,9 @@ const getDirectPlayUrl = async (item: ICmsInfoEpisode): Promise<{
     if ((playItem as any).isPush === true) {
       const pushSite = getPushAgentSite();
       if (!pushSite) {
-        throw new Error('未检测到网盘推送服务');
+        throw new Error('未检测到网盘推送服务，请先导入 push_agent 站点配置');
       }
       
-      // 使用保存的 pushFlag，每个推送链接对应唯一的 flag
       const flag = (playItem as any).pushFlag;
       if (!flag) {
         throw new Error('推送剧集缺少 flag 参数');
@@ -873,12 +872,13 @@ const getDirectPlayUrl = async (item: ICmsInfoEpisode): Promise<{
       
       if (!playRes.url) throw new Error('No Play URL');
       
-      // 替换为真实直链，继续执行后续的正常播放流程
-      playItem = {
-        ...playItem,
-        link: playRes.url,
+      // 直接返回，不进行任何 checkPlayable 或嗅探
+      return {
+        url: playRes.url,
+        headers: playRes.headers || {},
+        quality: playRes.quality || [],
+        mediaType: 'video',
       };
-      // 注意：不 return，继续执行下面的正常播放流程
     }
     
     // ========== 处理 push:// 网盘推送链接（原始链接）==========
@@ -1155,7 +1155,7 @@ const setup = async () => {
     // 不自动播放，等待用户点击剧集
     getStarData();
     fetchRecommend();
-    MessagePlugin.info('当前为网盘分享链接，请点击具体剧集开始播放', 3000);
+    MessagePlugin.info('当前为网盘推送链接，请点击剧集开始播放', 3000);
   } else {
     // 正常播放第一集
     await callPlay(flimEpisode);
