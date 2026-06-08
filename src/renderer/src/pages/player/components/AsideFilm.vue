@@ -833,77 +833,27 @@ const handleSwitchRecommendItem = async (item: IRecMatch) => {
   setup();
 };
 
-const getDirectPlayUrl = async (
-  item: ICmsInfoEpisode,
+const resolvePlayUrl = async (
+  playItem: ICmsInfoEpisode,
+  overrideSiteId?: string,
+  overrideFlag?: string,
 ): Promise<{
   url: string;
   headers: Record<string, any>;
   quality: Array<string | number>;
   mediaType: string;
 }> => {
-  // 内部递归函数
-  const resolvePlayUrl = async (
-    playItem: ICmsInfoEpisode,
-    overrideSiteId?: string,
-    overrideFlag?: string,
-  ): Promise<{
-    url: string;
-    headers: Record<string, any>;
-    quality: Array<string | number>;
-    mediaType: string;
-  }> => {
-    // ========== 处理来自推送的剧集（通过 isPush 标记识别）==========
-    if ((playItem as any).isPush === true) {
-      const pushSite = getPushAgentSite();
-      if (!pushSite) {
-        throw new Error('未检测到网盘推送服务，请先导入 push_agent 站点配置');
-      }
-      
-      // 递归调用，传入 push_agent 的站点 ID 和线路标识
-      return resolvePlayUrl(playItem, pushSite.id, overrideFlag);
+  // 处理来自推送的剧集（通过 isPush 标记识别）
+  if ((playItem as any).isPush === true) {
+    const pushSite = getPushAgentSite();
+    if (!pushSite) {
+      throw new Error('未检测到网盘推送服务');
     }
     
-    // ========== 处理 push:// 网盘推送链接（原始链接）==========
-    if (playItem.link && playItem.link.startsWith('push://')) {
-      const normalizedLink = normalizePushUrl(playItem.link);
-      
-      const pushSite = getPushAgentSite();
-      if (!pushSite) {
-        throw new Error('未检测到网盘推送服务，请先导入 push_agent 站点配置');
-      }
-      
-      const resp = await fetchCmsDetail({ uuid: pushSite.id, ids: normalizedLink });
-      console.log('[Push] 详情接口响应:', resp);
-      
-      if (resp?.list?.length && resp.list[0]?.vod_episode) {
-        const playList = resp.list[0].vod_episode;
-        const firstFlag = Object.keys(playList)[0];
-        const firstEpisode = playList[firstFlag]?.[0];
-        
-        if (firstEpisode?.link) {
-          console.log('[Push] 获取到第一集，link:', firstEpisode.link);
-
-          // 标记为推送剧集
-          const markedEpisode = {
-            ...firstEpisode,
-            isPush: true,
-          };
-          
-          active.value.filmSource = firstFlag;
-          active.value.filmIndex = `${firstEpisode.text}$${firstEpisode.link}`;
-          
-          // 递归调用，传入 push_agent 的站点 ID 和线路标识
-          return resolvePlayUrl(markedEpisode, pushSite.id, firstFlag);
-        }
-      }
-      throw new Error('获取网盘播放列表失败');
-    }
-    
-    // ========== 正常播放流程（包括推送剧集的播放接口调用）==========
-    const siteId = overrideSiteId || extraConf.value.active.id;
+    const siteId = overrideSiteId || pushSite.id;
     const flag = overrideFlag || active.value.filmSource;
     
-    console.log('[Push] 调用播放接口，siteId:', siteId, 'flag:', flag, 'link:', playItem.link);
+    console.log('[Push] 推送剧集调用播放接口，siteId:', siteId, 'flag:', flag, '加密字符串:', playItem.link);
     
     const playRes = await fetchCmsPlay({
       uuid: siteId,
@@ -913,71 +863,123 @@ const getDirectPlayUrl = async (
     
     if (!playRes.url) throw new Error('No Play URL');
     
-    const checkPlayable = async (
-      url: string,
-      headers: Record<string, any> = {},
-    ): Promise<{
-      url: string;
-      headers: Record<string, any>;
-      quality: Array<string | number>;
-      mediaType: string;
-    } | null> => {
-      const mediaType = await mediaUtils.checkMediaType(url, headers);
-      if (mediaType === 'unknown') return null;
-      return { url, headers, mediaType, quality: [] };
+    // 替换为真实直链，继续执行下面的正常播放流程
+    playItem = {
+      ...playItem,
+      link: playRes.url,
     };
+  }
+  
+  // 处理 push:// 网盘推送链接（原始链接）
+  if (playItem.link && playItem.link.startsWith('push://')) {
+    const normalizedLink = normalizePushUrl(playItem.link);
     
-    // Direct play
-    if (playRes.parse === 0 && playRes.jx !== 1) {
-      if (playRes.url.startsWith(PROXY_API)) {
-        const { searchParams } = new URL(playRes.url);
-        const proxyParams = Object.fromEntries(searchParams.entries());
-        const proxyData = await fetchCmsProxy({ uuid: siteId, ...proxyParams });
-        await setProxy({ url: proxyParams.url, text: proxyData });
+    const pushSite = getPushAgentSite();
+    if (!pushSite) {
+      throw new Error('未检测到网盘推送服务');
+    }
+    
+    const resp = await fetchCmsDetail({ uuid: pushSite.id, ids: normalizedLink });
+    console.log('[Push] 详情接口响应:', resp);
+    
+    if (resp?.list?.length && resp.list[0]?.vod_episode) {
+      const playList = resp.list[0].vod_episode;
+      const firstFlag = Object.keys(playList)[0];
+      const firstEpisode = playList[firstFlag]?.[0];
+      
+      if (firstEpisode?.link) {
+        console.log('[Push] 获取到第一集，link:', firstEpisode.link);
+
+        const markedEpisode = {
+          ...firstEpisode,
+          isPush: true,
+        };
+        
+        active.value.filmSource = firstFlag;
+        active.value.filmIndex = `${firstEpisode.text}$${firstEpisode.link}`;
+        
+        return resolvePlayUrl(markedEpisode, pushSite.id, firstFlag);
       }
-      const directed = await checkPlayable(playRes.url, playRes.headers);
-      if (!isNil(directed)) {
-        return { ...directed, quality: playRes.quality };
-      }
     }
-    
-    // Parse play
-    if (playRes.parse === 1 && playRes.jx !== 1) {
-      const parsed = await checkPlayable(playRes.url, playRes.headers);
-      if (!isNil(parsed)) {
-        return { ...parsed, quality: playRes.quality };
-      }
-    }
-    
-    // Jx play
-    if (playRes.jx === 1 || !isArrayEmpty(activeAnalyzeList.value)) {
-      const parse = activeAnalyzeList.value.find((p: IModels['analyze']) => p.id === active.value.analyzeId);
-      if (isNil(parse)) throw new Error('No Active Analyze');
-      const jxResp = await fetchParse({ id: parse.id, url: playRes.url });
-      const jxed = await checkPlayable(jxResp.url, jxResp.headers);
-      if (jxed) return jxed;
-    }
-    
-    // Sniffer play
-    if (isHttp(playRes.url)) {
-      const sniffResp = await cdpSnifferMedia({
-        url: playRes.url,
-        options: {
-          runScript: playRes.script.runScript,
-          initScript: playRes.script.initScript,
-          customRegex: playRes.script.customRegex,
-          snifferExclude: playRes.script.snifferExclude,
-          headers: playRes.headers,
-        },
-      });
-      const sniffed = await checkPlayable(sniffResp.url, playRes.headers);
-      if (!isNil(sniffed)) return sniffed;
-    }
-    
-    throw new Error('No Play URL');
+    throw new Error('获取网盘播放列表失败');
+  }
+  
+  // 正常播放流程
+  const siteId = overrideSiteId || extraConf.value.active.id;
+  const flag = overrideFlag || active.value.filmSource;
+  
+  console.log('[Push] 调用播放接口，siteId:', siteId, 'flag:', flag, 'link:', playItem.link);
+  
+  const playRes = await fetchCmsPlay({
+    uuid: siteId,
+    play: playItem.link,
+    flag: flag,
+  });
+  
+  if (!playRes.url) throw new Error('No Play URL');
+  
+  const checkPlayable = async (
+    url: string,
+    headers: Record<string, any> = {},
+  ): Promise<{
+    url: string;
+    headers: Record<string, any>;
+    quality: Array<string | number>;
+    mediaType: string;
+  } | null> => {
+    const mediaType = await mediaUtils.checkMediaType(url, headers);
+    if (mediaType === 'unknown') return null;
+    return { url, headers, mediaType, quality: [] };
   };
   
-  return resolvePlayUrl(item);
+  // Direct play
+  if (playRes.parse === 0 && playRes.jx !== 1) {
+    if (playRes.url.startsWith(PROXY_API)) {
+      const { searchParams } = new URL(playRes.url);
+      const proxyParams = Object.fromEntries(searchParams.entries());
+      const proxyData = await fetchCmsProxy({ uuid: siteId, ...proxyParams });
+      await setProxy({ url: proxyParams.url, text: proxyData });
+    }
+    const directed = await checkPlayable(playRes.url, playRes.headers);
+    if (!isNil(directed)) {
+      return { ...directed, quality: playRes.quality };
+    }
+  }
+  
+  // Parse play
+  if (playRes.parse === 1 && playRes.jx !== 1) {
+    const parsed = await checkPlayable(playRes.url, playRes.headers);
+    if (!isNil(parsed)) {
+      return { ...parsed, quality: playRes.quality };
+    }
+  }
+  
+  // Jx play
+  if (playRes.jx === 1 || !isArrayEmpty(activeAnalyzeList.value)) {
+    const parse = activeAnalyzeList.value.find((p: IModels['analyze']) => p.id === active.value.analyzeId);
+    if (isNil(parse)) throw new Error('No Active Analyze');
+    const jxResp = await fetchParse({ id: parse.id, url: playRes.url });
+    const jxed = await checkPlayable(jxResp.url, jxResp.headers);
+    if (jxed) return jxed;
+  }
+  
+  // Sniffer play
+  if (isHttp(playRes.url)) {
+    const sniffResp = await cdpSnifferMedia({
+      url: playRes.url,
+      options: {
+        runScript: playRes.script.runScript,
+        initScript: playRes.script.initScript,
+        customRegex: playRes.script.customRegex,
+        snifferExclude: playRes.script.snifferExclude,
+        headers: playRes.headers,
+      },
+    });
+    const sniffed = await checkPlayable(sniffResp.url, playRes.headers);
+    if (!isNil(sniffed)) return sniffed;
+  }
+  
+  throw new Error('No Play URL');
 };
 
 const callBarrage = async (item: ICmsInfoEpisode) => {
@@ -1138,7 +1140,7 @@ const setup = async () => {
     // 不自动播放，等待用户点击剧集
     getStarData();
     fetchRecommend();
-    MessagePlugin.info('当前为网盘分享链接，请点击具体剧集开始播放', 3000);
+    MessagePlugin.info('当前为网盘推送链接，请点击剧集开始播放', 3000);
   } else {
     // 正常播放第一集
     await callPlay(flimEpisode);
