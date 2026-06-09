@@ -58,7 +58,7 @@ import type { PropType } from 'vue';
 import { computed, ref, useAttrs, watch } from 'vue';
 
 import ActionSectionView from './components/ActionSection.vue';
-import { parseActionButton } from './utils';
+import { parseActionButton, parseActionConfig } from './utils';
 
 const attrs = useAttrs() as DialogProps;
 
@@ -96,8 +96,11 @@ watch(
 );
 watch(
   () => props.config,
-  (val) => (formData.value = val),
-  { deep: true },
+  (val) => {
+    const parsedConfig = parseActionConfig(val);
+    formData.value = parsedConfig as ICmsActionBase;
+  },
+  { deep: true, immediate: true },
 );
 
 const parsedButton = computed<Array<ICmsActionButtonTypeDisplay>>(() =>

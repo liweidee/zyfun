@@ -703,18 +703,27 @@ const onActionSubmit = async (id: string, doc: Record<string, any>) => {
     if (Object.hasOwn(actionResp, 'action')) {
       const { action } = actionResp;
 
-      if (CMS_ACTION_SPECIAL_ID_TYPES.includes(action.actionId as ICmsActionSpecialIdType)) {
-        const fn = handlerCmsActionSpecial[action.actionId];
+      // 解析 JSON 字符串
+      let parsedAction = action;
+      if (isString(action) && isJsonStr(action)) {
+        try {
+          parsedAction = JSON5.parse(action);
+        } catch (e) {
+          console.error('解析动作配置失败:', e);
+        }
+      }
+
+      if (CMS_ACTION_SPECIAL_ID_TYPES.includes(parsedAction.actionId as ICmsActionSpecialIdType)) {
+        const fn = handlerCmsActionSpecial[parsedAction.actionId];
         if (isFunction(fn)) {
-          await fn(action);
+          await fn(parsedAction);
           return;
         }
-
-        MessagePlugin.warning(t('pages.film.message.noSupportAction'));
+        console.warn(`Unhandled special action: ${parsedAction.actionId}`);
         return;
       }
 
-      actionData.value = action as ICmsActionBase;
+      actionData.value = parsedAction;
       active.value.actionDialog = true;
     }
   } catch (error) {
@@ -780,10 +789,19 @@ const handleCmsActionSpecialKeep = async (action: ICmsActionSpecialKeep) => {
   active.value.actionDialog = true;
 };
 
+const handleCmsActionSpecialRefreshList = async (_action: any) => {
+  // 刷新当前列表数据
+  removeAllCanceller();
+  resetPagination();
+  filmList.value = [];
+  infiniteId.value = Date.now();
+};
+
 const handlerCmsActionSpecial = {
   [CMS_ACTION_SPECIAL_ID_TYPE.COPY]: handleCmsActionSpecialCopy,
   [CMS_ACTION_SPECIAL_ID_TYPE.DETAIL]: handleCmsActionSpecialDetail,
   [CMS_ACTION_SPECIAL_ID_TYPE.KEEP]: handleCmsActionSpecialKeep,
+  [CMS_ACTION_SPECIAL_ID_TYPE.REFRESH_LIST]: handleCmsActionSpecialRefreshList,
 };
 
 const handleCmsAction = async (doc: ICmsInfo) => {
@@ -814,22 +832,29 @@ const handleCmsAction = async (doc: ICmsInfo) => {
     }
 
     if (Object.hasOwn(actionResp, 'action')) {
-      if (CMS_ACTION_SPECIAL_ID_TYPES.includes(actionResp.action.actionId as ICmsActionSpecialIdType)) {
-        const { action, toast } = actionResp;
+      const { action } = actionResp;
 
-        if (toast) MessagePlugin.info(toast);
+      // 解析 JSON 字符串
+      let parsedAction = action;
+      if (isString(action) && isJsonStr(action)) {
+        try {
+          parsedAction = JSON5.parse(action);
+        } catch (e) {
+          console.error('解析动作配置失败:', e);
+        }
+      }
 
-        const fn = handlerCmsActionSpecial[action.actionId];
+      if (CMS_ACTION_SPECIAL_ID_TYPES.includes(parsedAction.actionId as ICmsActionSpecialIdType)) {
+        const fn = handlerCmsActionSpecial[parsedAction.actionId];
         if (isFunction(fn)) {
-          await fn(action);
+          await fn(parsedAction);
           return;
         }
-
-        MessagePlugin.warning(t('pages.film.message.noSupportAction'));
+        console.warn(`Unhandled special action: ${parsedAction.actionId}`);
         return;
       }
 
-      actionData.value = actionResp.action as ICmsActionBase;
+      actionData.value = parsedAction;
       active.value.actionDialog = true;
     }
 
@@ -852,8 +877,27 @@ const handleCmsAction = async (doc: ICmsInfo) => {
             return;
           }
 
-          if (Object.hasOwn(actionResp, 'action')) {
-            actionData.value = initResp.action as ICmsActionBase;
+          if (Object.hasOwn(initResp, 'action')) {
+            let initActionConfig = initResp.action;
+
+            // 解析 JSON 字符串
+            if (isString(initActionConfig) && isJsonStr(initActionConfig)) {
+              try {
+                initActionConfig = JSON5.parse(initActionConfig);
+              } catch (e) {
+                console.error('解析 initAction 配置失败:', e);
+              }
+            }
+
+            if (CMS_ACTION_SPECIAL_ID_TYPES.includes(initActionConfig.actionId as ICmsActionSpecialIdType)) {
+              const fn = handlerCmsActionSpecial[initActionConfig.actionId];
+              if (isFunction(fn)) {
+                await fn(initActionConfig);
+              }
+              return;
+            }
+
+            actionData.value = initActionConfig as ICmsActionBase;
             active.value.actionDialog = true;
           }
         } catch {}

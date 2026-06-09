@@ -531,16 +531,19 @@ const playEvent = async (item: IHistory) => {
   active.value.loading = true;
 
   try {
-    // 如果 relateSite 为空，尝试根据 relateId 从 config.value.film 中查找站点
+    // 获取有效的 relateSite
     let relateSite = item.relateSite;
+
+    // 如果 relateSite 无效，尝试从 config 中查找
     if ((isNil(relateSite) || isObjectEmpty(relateSite)) && item.relateId) {
-      relateSite = config.value.film?.find((site: IModels['site']) => site.key === item.relateId);
-      if (relateSite) {
-        console.log('[History] 手动找到站点:', relateSite);
+      const foundSite = config.value.film?.find((site: IModels['site']) => site.key === item.relateId);
+      if (foundSite) {
+        relateSite = foundSite;
       }
     }
 
-    if (isNil(relateSite) || isObjectEmpty(relateSite)) {
+    // 最终检查
+    if (!relateSite || isObjectEmpty(relateSite)) {
       MessagePlugin.error('无法播放：站点信息缺失');
       return;
     }
@@ -553,8 +556,8 @@ const playEvent = async (item: IHistory) => {
       9: handleNovelPlay,
     };
 
-    // 创建带有 relateSite 的新 item
-    const newItem = { ...item, relateSite };
+    // 使用断言告诉 TypeScript relateSite 一定存在
+    const newItem = { ...item, relateSite: relateSite! };
     await handlers?.[item.type]?.(newItem as any);
   } catch (error) {
     console.error('Failed to play:', error);
