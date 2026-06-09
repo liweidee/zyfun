@@ -30,8 +30,8 @@
                         <span v-else-if="item.type === 3" class="card-tag-text txthide txthide1">
                           {{ $t('pages.parse.title') }}
                         </span>
-                        <span v-else-if="item.type === 4" class="card-tag-text txthide txthide1"> 漫画 </span>
-                        <span v-else-if="item.type === 5" class="card-tag-text txthide txthide1"> 小说 </span>
+                        <span v-else-if="(item as any).type === 4" class="card-tag-text txthide txthide1"> 漫画 </span>
+                        <span v-else-if="(item as any).type === 5" class="card-tag-text txthide txthide1"> 小说 </span>
                       </div>
                       <div class="card-tag card-tag-close" @click.stop="handleRemoveItem(item)">
                         <delete-icon class="t-icon t-icon-delete" />
