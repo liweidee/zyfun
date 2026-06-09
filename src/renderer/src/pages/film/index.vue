@@ -577,9 +577,13 @@ const playWithExternalPlayer = async (item: ICmsInfo, current: IModels['site']) 
   active.value.detailDialog = true;
 };
 
-const playWithInternalPlayer = async (item: ICmsInfo, active: IModels['site']) => {
+const playWithInternalPlayer = async (
+  item: ICmsInfo,
+  active: IModels['site'],
+  contentType: 'film' | 'manga' | 'novel' = 'film',
+) => {
   storePlayer.updateConfig({
-    type: 'film',
+    type: contentType, // 使用动态类型
     status: true,
     data: {
       info: item,
@@ -623,12 +627,18 @@ const playEvent = async (item) => {
       ...(resp.list[0]?.vod_pic ? {} : { vod_pic: item.vod_pic }),
     };
 
+    const getContentType = (siteKey: string): 'film' | 'manga' | 'novel' => {
+      if (siteKey.includes('[画]')) return 'manga';
+      if (siteKey.includes('[书]')) return 'novel';
+      return 'film';
+    };
+
     const player = storePlayer.player;
 
     if (player.type === 'custom') {
       await playWithExternalPlayer(info, site);
     } else {
-      await playWithInternalPlayer(info, site);
+      await playWithInternalPlayer(info, site, getContentType(site.key));
     }
   } catch (error) {
     console.error('Failed to play:', error);

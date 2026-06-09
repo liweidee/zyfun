@@ -7,7 +7,7 @@ const API_PREFIX = 'moment';
 
 const StarSchema = Type.Object({
   id: Type.String({ description: 'id' }),
-  type: Type.Integer({ format: 'int32', enum: [1, 2, 3], description: 'type' }),
+  type: Type.Integer({ format: 'int32', enum: [1, 2, 3, 4, 5], description: 'type' }),
   relateId: Type.String({ description: 'relate id' }),
   videoId: Type.String({ description: 'video id' }),
   videoImage: Type.Union([Type.String(), Type.Null()], { description: 'video image' }),
@@ -77,7 +77,7 @@ export const deleteSchema = {
     Type.Object({
       id: Type.Optional(Type.Array(Type.String(), { description: 'id' })),
       type: Type.Optional(
-        Type.Array(Type.Integer({ format: 'int32', enum: [1, 2, 3] }), { description: 'search type' }),
+        Type.Array(Type.Integer({ format: 'int32', enum: [1, 2, 3, 4, 5] }), { description: 'search type' }),
       ),
     }),
   ),
@@ -114,7 +114,7 @@ export const pageSchema = {
   querystring: Type.Partial(
     Type.Object({
       kw: Type.String({ description: 'search keyword' }),
-      type: Type.Array(Type.Integer({ format: 'int32', enum: [1, 2, 3] }), { description: 'search type' }),
+      type: Type.Array(Type.Integer({ format: 'int32', enum: [1, 2, 3, 4, 5] }), { description: 'search type' }),
       ...PageQuery,
     }),
   ),
@@ -131,7 +131,7 @@ export const findDetailSchema = {
   querystring: Type.Object({
     relateId: Type.String({ description: 'relate id' }),
     videoId: Type.String({ description: 'video id' }),
-    type: Type.Optional(Type.Integer({ format: 'int32', enum: [1, 2, 3], description: 'type' })),
+    type: Type.Optional(Type.Integer({ format: 'int32', enum: [1, 2, 3, 4, 5], description: 'type' })),
   }),
   response: {
     200: StarResponseSchema,

@@ -92,6 +92,8 @@ const api: FastifyPluginAsync = async (fastify): Promise<void> => {
           1: 'site',
           2: 'iptv',
           3: 'analyze',
+          4: 'site',
+          5: 'site',
         } as const;
 
         const list = await Promise.all(

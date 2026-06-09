@@ -6,8 +6,94 @@
       </t-header>
       <t-layout :class="[`${prefix}-main`]">
         <t-content :class="[`${prefix}-content`]">
-          <div :class="[`${prefix}-content-container`]">
-            <multi-player ref="playerRef" class="media-player" @update-time="onTimeUpdate" />
+          <div :class="[`${prefix}-content-container`]" style="position: relative">
+            <!-- 视频播放器 - 始终存在，但对于漫画/小说隐藏 -->
+            <multi-player
+              ref="playerRef"
+              class="media-player"
+              :class="{ 'player-hidden': storePlayer.type !== 'film' }"
+              @update-time="onTimeUpdate"
+            />
+
+            <!-- 漫画阅读器 - 叠加层 -->
+            <div v-if="storePlayer.type === 'manga'" class="content-overlay manga-overlay">
+              <div v-if="mangaImages.length" class="manga-viewer">
+                <div class="manga-image-wrapper">
+                  <img :key="mangaCurrentIndex" :src="mangaImages[mangaCurrentIndex]" class="manga-image" />
+                </div>
+                <div class="manga-controls">
+                  <t-button
+                    theme="default"
+                    variant="outline"
+                    :disabled="mangaCurrentIndex <= 0"
+                    @click="prevMangaImage"
+                  >
+                    <chevron-left-icon class="button-icon" /> 上一页
+                  </t-button>
+                  <span class="page-info">{{ mangaCurrentIndex + 1 }} / {{ mangaImages.length }}</span>
+                  <t-button
+                    theme="default"
+                    variant="outline"
+                    :disabled="mangaCurrentIndex >= mangaImages.length - 1"
+                    @click="nextMangaImage"
+                  >
+                    下一页 <chevron-right-icon class="button-icon" />
+                  </t-button>
+                </div>
+              </div>
+              <div v-else class="empty-viewer">
+                <t-empty description="请从右侧选择漫画章节" />
+              </div>
+            </div>
+
+            <!-- 小说阅读器 - 叠加层 -->
+            <div v-else-if="storePlayer.type === 'novel'" class="content-overlay novel-overlay">
+              <div v-if="novelContent" class="novel-viewer">
+                <div class="novel-header">
+                  <h3 class="novel-title">{{ novelTitle }}</h3>
+                </div>
+                <div class="novel-content-wrapper">
+                  <div
+                    class="novel-content"
+                    :style="{ fontSize: `${novelFontSize}px` }"
+                    v-html="novelFormattedContent"
+                  ></div>
+                </div>
+                <div class="novel-controls">
+                  <t-button
+                    theme="default"
+                    variant="outline"
+                    :disabled="novelChapterIndex <= 0"
+                    @click="prevNovelChapter"
+                  >
+                    <chevron-left-icon class="button-icon" /> 上一章
+                  </t-button>
+                  <t-select
+                    v-model="novelChapterIndex"
+                    :options="novelChapterOptions"
+                    style="width: 200px"
+                    @change="onNovelChapterChange"
+                  />
+                  <t-button
+                    theme="default"
+                    variant="outline"
+                    :disabled="novelChapterIndex >= novelChapterList.length - 1"
+                    @click="nextNovelChapter"
+                  >
+                    下一章 <chevron-right-icon class="button-icon" />
+                  </t-button>
+                </div>
+                <div class="novel-font-controls">
+                  <t-button theme="default" size="small" variant="outline" @click="decreaseNovelFontSize">A-</t-button>
+                  <span class="font-size-indicator">{{ novelFontSize }}px</span>
+                  <t-button theme="default" size="small" variant="outline" @click="increaseNovelFontSize">A+</t-button>
+                </div>
+              </div>
+              <div v-else class="empty-viewer">
+                <t-empty description="请从右侧选择小说章节" />
+              </div>
+            </div>
+
             <div class="dock-show" @click="toggleAside">
               <chevron-left-icon v-if="active.aside" class="dock-icon" />
               <chevron-right-icon v-else class="dock-icon" />
@@ -18,6 +104,7 @@
           <div :class="[`${prefix}-aside-container`]">
             <component
               :is="currentAsideComponent"
+              ref="asideComponentRef"
               class="container-aside"
               :store="playerStoreFormData"
               :process="processFormData"
@@ -26,6 +113,8 @@
               @pause="handlePlayerPause"
               @seek="handlePlayerSeek"
               @update="updateConf"
+              @manga-content-change="onMangaContentChange"
+              @novel-content-change="onNovelContentChange"
             />
           </div>
         </t-aside>
@@ -34,6 +123,7 @@
   </div>
 </template>
 <script setup lang="ts">
+const asideComponentRef = ref<any>(null);
 import { APP_NAME } from '@shared/config/appinfo';
 import { SYSTEM_M3U8_AD_REMOVE_API } from '@shared/config/env';
 import { IPC_CHANNEL } from '@shared/config/ipcChannel';
@@ -60,6 +150,8 @@ const componentMap = {
   film: defineAsyncComponent(() => import('./components/AsideFilm.vue')),
   live: defineAsyncComponent(() => import('./components/AsideLive.vue')),
   parse: defineAsyncComponent(() => import('./components/AsideParse.vue')),
+  manga: defineAsyncComponent(() => import('./components/AsideManga.vue')),
+  novel: defineAsyncComponent(() => import('./components/AsideNovel.vue')),
 };
 
 const playerRef = useTemplateRef<MultiPlayerInstance | null>('playerRef');
@@ -94,8 +186,112 @@ const title = computed(() => {
   const type = storePlayer.type;
   const info = storePlayer.data.info;
 
-  return (type === 'film' ? info.vod_name : info.name) || APP_NAME;
+  if (type === 'film') return info.vod_name || APP_NAME;
+  if (type === 'manga') return info.vod_name || APP_NAME;
+  if (type === 'novel') return info.vod_name || APP_NAME;
+  return info.name || APP_NAME;
 });
+
+// 漫画相关状态
+const mangaImages = ref<string[]>([]);
+const mangaCurrentIndex = ref(0);
+
+// 小说相关状态
+const novelTitle = ref('');
+const novelContent = ref('');
+const novelFontSize = ref(18);
+const novelChapterIndex = ref(0);
+const novelChapterList = ref<{ text: string; link: string }[]>([]);
+
+const novelFormattedContent = computed(() => {
+  const content = novelContent.value;
+  if (!content) return '';
+  const paragraphs = content.split(/\n/);
+  return paragraphs
+    .filter((p) => p && p.trim())
+    .map((p) => `<p style="text-indent: 2em; margin-bottom: 1em;">${p}</p>`)
+    .join('');
+});
+
+const novelChapterOptions = computed(() => {
+  return novelChapterList.value.map((ch, idx) => ({
+    label: ch.text,
+    value: idx,
+  }));
+});
+
+// 漫画控制方法
+const prevMangaImage = () => {
+  if (mangaCurrentIndex.value > 0) {
+    mangaCurrentIndex.value--;
+  }
+};
+
+const nextMangaImage = () => {
+  if (mangaCurrentIndex.value < mangaImages.value.length - 1) {
+    mangaCurrentIndex.value++;
+  }
+};
+
+// 小说控制方法
+const prevNovelChapter = async () => {
+  if (novelChapterIndex.value > 0) {
+    const prev = novelChapterList.value[novelChapterIndex.value - 1];
+    if (prev && asideComponentRef.value?.loadChapter) {
+      await asideComponentRef.value.loadChapter(prev, novelChapterIndex.value - 1);
+    }
+  }
+};
+
+const nextNovelChapter = async () => {
+  if (novelChapterIndex.value < novelChapterList.value.length - 1) {
+    const next = novelChapterList.value[novelChapterIndex.value + 1];
+    if (next && asideComponentRef.value?.loadChapter) {
+      await asideComponentRef.value.loadChapter(next, novelChapterIndex.value + 1);
+    }
+  }
+};
+
+const onNovelChapterChange = async (value: number) => {
+  if (value >= 0 && value < novelChapterList.value.length) {
+    const chapter = novelChapterList.value[value];
+    if (chapter && asideComponentRef.value?.loadChapter) {
+      await asideComponentRef.value.loadChapter(chapter, value);
+    }
+  }
+};
+
+const increaseNovelFontSize = () => {
+  if (novelFontSize.value < 32) {
+    novelFontSize.value += 2;
+  }
+};
+
+const decreaseNovelFontSize = () => {
+  if (novelFontSize.value > 12) {
+    novelFontSize.value -= 2;
+  }
+};
+
+// 接收子组件内容事件
+const onMangaContentChange = (data: { images: string[]; currentIndex: number; title: string; chapterLink: string }) => {
+  mangaImages.value = data.images;
+  mangaCurrentIndex.value = data.currentIndex;
+};
+
+const onNovelContentChange = (data: {
+  title: string;
+  content: string;
+  chapterLink: string;
+  chapterIndex: number;
+  totalChapters: number;
+  chapterList: { text: string; link: string }[];
+}) => {
+  novelTitle.value = data.title;
+  novelContent.value = data.content;
+  novelChapterIndex.value = data.chapterIndex;
+  novelChapterList.value = data.chapterList;
+};
 
 watch(
   () => storePlayer.setting.skipAd,
@@ -196,4 +392,165 @@ const handlePlayerSeek = (time: number) => playerRef.value?.seek(time);
 </script>
 <style lang="less" scoped>
 @import '@/style/player.less';
+
+.media-player.player-hidden {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.content-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--td-bg-color-container);
+  z-index: 10;
+  overflow: auto;
+}
+
+.manga-overlay,
+.novel-overlay {
+  padding: var(--td-comp-paddingTB-m) var(--td-comp-paddingLR-m);
+}
+
+.manga-viewer {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+
+  .manga-image-wrapper {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #1a1a1a;
+    border-radius: var(--td-radius-medium);
+
+    .manga-image {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+  }
+
+  .manga-controls,
+  .novel-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--td-size-4);
+    padding: var(--td-comp-paddingTB-s) 0;
+
+    :deep(.t-button) .t-button__text {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+  }
+
+  .novel-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--td-size-4);
+    padding: var(--td-comp-paddingTB-s) 0;
+
+    :deep(.t-button) .t-button__text {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+  }
+
+  .novel-font-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--td-size-4);
+
+    .t-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .font-size-indicator {
+      min-width: 50px;
+      text-align: center;
+      font-size: var(--td-font-size-body-medium);
+      color: var(--td-text-color-secondary);
+    }
+  }
+}
+
+.novel-viewer {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--td-size-4);
+
+  .novel-header {
+    text-align: center;
+    padding-bottom: var(--td-comp-paddingTB-m);
+    border-bottom: 1px solid var(--td-border-level-1-color);
+
+    .novel-title {
+      margin: 0;
+      font-size: var(--td-font-size-title-large);
+      font-weight: 600;
+      color: var(--td-text-color-primary);
+    }
+  }
+
+  .novel-content-wrapper {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--td-comp-paddingTB-l) var(--td-comp-paddingLR-l);
+    background-color: var(--td-bg-color-page);
+    border-radius: var(--td-radius-medium);
+
+    .novel-content {
+      line-height: 1.8;
+      color: var(--td-text-color-primary);
+
+      :deep(p) {
+        margin-bottom: var(--td-comp-margin-s);
+      }
+    }
+  }
+
+  .novel-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--td-size-4);
+    padding: var(--td-comp-paddingTB-s) 0;
+  }
+
+  .novel-font-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--td-size-4);
+
+    .font-size-indicator {
+      min-width: 50px;
+      text-align: center;
+      font-size: var(--td-font-size-body-medium);
+      color: var(--td-text-color-secondary);
+    }
+  }
+}
+
+.empty-viewer {
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 </style>

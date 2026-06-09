@@ -1,7 +1,7 @@
 import type { ISetting } from '@shared/config/tblSetting';
 
 export interface IStorePlayer {
-  type: 'film' | 'live' | 'parse';
+  type: 'film' | 'live' | 'parse' | 'manga' | 'novel';
   status: boolean;
   data: {
     info: Record<string, any>;

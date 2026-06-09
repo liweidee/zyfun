@@ -493,7 +493,7 @@ const contentToStandard = (config: IDbStore): Partial<IDbStore> => {
       }
       case 'star': {
         const star = (config[key] || [])
-          .filter((item) => item.videoId && item.relateId && [1, 2, 3, 4].includes(item.type))
+          .filter((item) => item.videoId && item.relateId && [1, 2, 3, 4, 5].includes(item.type))
           .map((item) => {
             const uuid = randomUUID();
             return {

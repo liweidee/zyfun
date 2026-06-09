@@ -24,6 +24,8 @@
                   <span v-else-if="item.type === 3" class="card-tag-text txthide txthide1">
                     {{ $t('pages.parse.title') }}
                   </span>
+                  <span v-else-if="item.type === 4" class="card-tag-text txthide txthide1"> 漫画 </span>
+                  <span v-else-if="item.type === 5" class="card-tag-text txthide txthide1"> 小说 </span>
                 </div>
                 <div class="card-tag card-tag-close" @click.stop="handleRemoveItem(item)">
                   <delete-icon class="t-icon t-icon-delete" />
@@ -122,7 +124,15 @@ type IStarParse = IStarBase & {
   type: 3;
   relateSite: IModels['analyze'];
 };
-type IStar = IStarFilm | IStarLive | IStarParse;
+type IStarManga = IStarBase & {
+  type: 4;
+  relateSite: IModels['site'];
+};
+type IStarNovel = IStarBase & {
+  type: 5;
+  relateSite: IModels['site'];
+};
+type IStar = IStarFilm | IStarLive | IStarParse | IStarManga | IStarNovel;
 
 interface IParse {
   api: NonNullable<IStarBase['videoId']>;
@@ -191,7 +201,7 @@ const getStar = async (): Promise<number> => {
   const resp = await fetchStarPage({
     pageNum: pageIndex,
     pageSize,
-    type: [1, 2, 3],
+    type: [1, 2, 3, 4, 5],
   });
 
   if (isArray(resp.list) && !isArrayEmpty(resp.list)) {
@@ -392,11 +402,85 @@ const handleParsePlay = async (conf: IStarParse) => {
   }
 };
 
+const handleMangaPlay = async (conf: IStarBase & { relateSite: any; type: 4 }) => {
+  try {
+    const site = conf.relateSite;
+    const resp = await fetchCmsDetail({ uuid: site.id, ids: conf.videoId });
+
+    if (!isArray(resp.list) || isArrayEmpty(resp.list)) {
+      MessagePlugin.warning('获取漫画详情失败');
+      return;
+    }
+
+    const info = {
+      ...resp.list[0],
+      ...(resp.list[0]?.vod_id ? {} : { vod_id: conf.videoId }),
+      ...(resp.list[0]?.vod_name ? {} : { vod_name: conf.videoName }),
+      ...(resp.list[0]?.vod_pic ? {} : { vod_pic: conf.videoImage }),
+    };
+
+    storePlayer.updateConfig({
+      type: 'manga',
+      status: true,
+      data: {
+        info,
+        extra: { active: site, site: config.value.film },
+      },
+    });
+    window.electron.ipcRenderer.invoke(IPC_CHANNEL.WINDOW_PLAYER);
+  } catch (error) {
+    console.error('[Manga] 播放失败:', error);
+    MessagePlugin.error('播放失败，请稍后重试');
+  }
+};
+
+const handleNovelPlay = async (conf: IStarBase & { relateSite: any; type: 5 }) => {
+  try {
+    const site = conf.relateSite;
+    const resp = await fetchCmsDetail({ uuid: site.id, ids: conf.videoId });
+
+    if (!isArray(resp.list) || isArrayEmpty(resp.list)) {
+      MessagePlugin.warning('获取小说详情失败');
+      return;
+    }
+
+    const info = {
+      ...resp.list[0],
+      ...(resp.list[0]?.vod_id ? {} : { vod_id: conf.videoId }),
+      ...(resp.list[0]?.vod_name ? {} : { vod_name: conf.videoName }),
+      ...(resp.list[0]?.vod_pic ? {} : { vod_pic: conf.videoImage }),
+    };
+
+    storePlayer.updateConfig({
+      type: 'novel',
+      status: true,
+      data: {
+        info,
+        extra: { active: site, site: config.value.film },
+      },
+    });
+    window.electron.ipcRenderer.invoke(IPC_CHANNEL.WINDOW_PLAYER);
+  } catch (error) {
+    console.error('[Novel] 播放失败:', error);
+    MessagePlugin.error('播放失败，请稍后重试');
+  }
+};
+
 const playEvent = async (item: IStar) => {
   active.value.loading = true;
 
   try {
-    if (isNil(item.relateSite) || isObjectEmpty(item.relateSite)) {
+    // 如果 relateSite 为空，尝试根据 relateId 从 config.value.film 中查找站点
+    let relateSite = item.relateSite;
+    if ((isNil(relateSite) || isObjectEmpty(relateSite)) && item.relateId) {
+      relateSite = config.value.film?.find((site: IModels['site']) => site.key === item.relateId);
+      if (relateSite) {
+        console.log('[Star] 手动找到站点:', relateSite);
+      }
+    }
+
+    if (isNil(relateSite) || isObjectEmpty(relateSite)) {
+      MessagePlugin.error('无法播放：站点信息缺失');
       return;
     }
 
@@ -404,8 +488,13 @@ const playEvent = async (item: IStar) => {
       1: handleFilmPlay,
       2: handleLivePlay,
       3: handleParsePlay,
+      4: handleMangaPlay,
+      5: handleNovelPlay,
     };
-    await handlers?.[item.type]?.(item as any);
+
+    // 创建带有 relateSite 的新 item
+    const newItem = { ...item, relateSite };
+    await handlers?.[item.type]?.(newItem as any);
   } catch (error) {
     console.error('Failed to play:', error);
     MessagePlugin.error(`${t('common.error')}: ${(error as Error).message}`);

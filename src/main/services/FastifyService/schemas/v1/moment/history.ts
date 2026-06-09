@@ -7,7 +7,7 @@ const API_PREFIX = 'moment';
 
 const HistorySchema = Type.Object({
   id: Type.String({ description: 'id' }),
-  type: Type.Integer({ format: 'int32', enum: [1, 2, 3, 5, 6, 7], description: 'type' }),
+  type: Type.Integer({ format: 'int32', enum: [1, 2, 3, 5, 6, 7, 8, 9], description: 'type' }),
   relateId: Type.String({ description: 'relate id' }),
   siteSource: Type.Union([Type.String(), Type.Null()], { description: 'site source' }),
   playEnd: Type.Boolean({ description: 'watch end' }),
@@ -82,7 +82,7 @@ export const deleteSchema = {
     Type.Object({
       id: Type.Optional(Type.Array(Type.String(), { description: 'id' })),
       type: Type.Optional(
-        Type.Array(Type.Integer({ format: 'int32', enum: [1, 2, 3, 5, 6, 7] }), { description: 'search type' }),
+        Type.Array(Type.Integer({ format: 'int32', enum: [1, 2, 3, 5, 6, 7, 8, 9] }), { description: 'search type' }),
       ),
     }),
   ),
@@ -119,7 +119,9 @@ export const pageSchema = {
   querystring: Type.Partial(
     Type.Object({
       kw: Type.String({ description: 'search keyword' }),
-      type: Type.Array(Type.Integer({ format: 'int32', enum: [1, 2, 3, 5, 6, 7] }), { description: 'search type' }),
+      type: Type.Array(Type.Integer({ format: 'int32', enum: [1, 2, 3, 5, 6, 7, 8, 9] }), {
+        description: 'search type',
+      }),
       ...PageQuery,
     }),
   ),
@@ -136,7 +138,7 @@ export const findDetailSchema = {
   querystring: Type.Object({
     relateId: Type.String({ description: 'relate id' }),
     videoId: Type.String({ description: 'video id' }),
-    type: Type.Optional(Type.Integer({ format: 'int32', enum: [1, 2, 3, 5, 6, 7], description: 'type' })),
+    type: Type.Optional(Type.Integer({ format: 'int32', enum: [1, 2, 3, 5, 6, 7, 8, 9], description: 'type' })),
   }),
   response: {
     200: HistoryResponseSchema,
