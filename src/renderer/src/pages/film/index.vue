@@ -723,7 +723,7 @@ const onActionSubmit = async (id: string, doc: Record<string, any>) => {
         return;
       }
 
-      actionData.value = parsedAction;
+      actionData.value = parsedAction as ICmsActionBase;
       active.value.actionDialog = true;
     }
   } catch (error) {
@@ -854,7 +854,7 @@ const handleCmsAction = async (doc: ICmsInfo) => {
         return;
       }
 
-      actionData.value = parsedAction;
+      actionData.value = parsedAction as ICmsActionBase;
       active.value.actionDialog = true;
     }
 
