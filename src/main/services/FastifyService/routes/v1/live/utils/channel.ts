@@ -197,7 +197,7 @@ const txtToStandard = (text: string): IChannelItem[] => {
 export const convertToStandard = async (
   path: string,
   type: IIptvType,
-  userHeaders?: Record<string, any>,
+  userHeaders?: Record<string, any> | null,
 ): Promise<IChannelItem[]> => {
   let content: string | null = null;
 
