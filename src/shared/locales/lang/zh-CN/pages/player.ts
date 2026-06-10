@@ -17,6 +17,21 @@ export default {
     channel: '频道',
     group: '分组',
   },
+  manga: {
+    prevPage: '上一页',
+    nextPage: '下一页',
+    pageInfo: '{current} / {total} 页',
+    emptyDesc: '请从右侧选择漫画章节',
+  },
+  novel: {
+    prevChapter: '上一章',
+    nextChapter: '下一章',
+    chapterPlaceholder: '选择章节',
+    fontSizeDecrease: 'A-',
+    fontSizeIncrease: 'A+',
+    fontSize: '字体大小',
+    emptyDesc: '请从右侧选择小说章节',
+  },
   header: {
     backMain: '回到主界面',
   },

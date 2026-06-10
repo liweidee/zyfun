@@ -11,7 +11,7 @@
             <multi-player
               ref="playerRef"
               class="media-player"
-              :class="{ 'player-hidden': storePlayer.type !== 'film' }"
+              :class="{ 'player-hidden': storePlayer.type === 'manga' || storePlayer.type === 'novel' }"
               @update-time="onTimeUpdate"
             />
 
@@ -28,7 +28,7 @@
                     :disabled="mangaCurrentIndex <= 0"
                     @click="prevMangaImage"
                   >
-                    <chevron-left-icon class="button-icon" /> 上一页
+                    <chevron-left-icon class="button-icon" /> {{ t('pages.player.manga.prevPage') }}
                   </t-button>
                   <span class="page-info">{{ mangaCurrentIndex + 1 }} / {{ mangaImages.length }}</span>
                   <t-button
@@ -37,12 +37,12 @@
                     :disabled="mangaCurrentIndex >= mangaImages.length - 1"
                     @click="nextMangaImage"
                   >
-                    下一页 <chevron-right-icon class="button-icon" />
+                    {{ t('pages.player.manga.nextPage') }} <chevron-right-icon class="button-icon" />
                   </t-button>
                 </div>
               </div>
               <div v-else class="empty-viewer">
-                <t-empty description="请从右侧选择漫画章节" />
+                <t-empty :description="t('pages.player.manga.emptyDesc')" />
               </div>
             </div>
 
@@ -66,7 +66,7 @@
                     :disabled="novelChapterIndex <= 0"
                     @click="prevNovelChapter"
                   >
-                    <chevron-left-icon class="button-icon" /> 上一章
+                    <chevron-left-icon class="button-icon" /> {{ t('pages.player.novel.prevChapter') }}
                   </t-button>
                   <t-select
                     v-model="novelChapterIndex"
@@ -80,17 +80,21 @@
                     :disabled="novelChapterIndex >= novelChapterList.length - 1"
                     @click="nextNovelChapter"
                   >
-                    下一章 <chevron-right-icon class="button-icon" />
+                    {{ t('pages.player.novel.nextChapter') }} <chevron-right-icon class="button-icon" />
                   </t-button>
                 </div>
                 <div class="novel-font-controls">
-                  <t-button theme="default" size="small" variant="outline" @click="decreaseNovelFontSize">A-</t-button>
+                  <t-button theme="default" size="small" variant="outline" @click="decreaseNovelFontSize">
+                    {{ t('pages.player.novel.fontSizeDecrease') }}
+                  </t-button>
                   <span class="font-size-indicator">{{ novelFontSize }}px</span>
-                  <t-button theme="default" size="small" variant="outline" @click="increaseNovelFontSize">A+</t-button>
+                  <t-button theme="default" size="small" variant="outline" @click="increaseNovelFontSize">
+                    {{ t('pages.player.novel.fontSizeIncrease') }}
+                  </t-button>
                 </div>
               </div>
               <div v-else class="empty-viewer">
-                <t-empty description="请从右侧选择小说章节" />
+                <t-empty :description="t('pages.player.novel.emptyDesc')" />
               </div>
             </div>
 

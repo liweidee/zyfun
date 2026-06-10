@@ -195,18 +195,26 @@ const api: FastifyPluginAsync = async (fastify): Promise<void> => {
     async (req, reply) => {
       try {
         const { id } = req.params;
+
         const dbResDetail = await dbService.iptv.get(id);
-        const { api, type } = dbResDetail || {};
-        if (isStrEmpty(api) || !isNumber(type)) {
-          return reply.code(400).send({ code: -1, msg: 'Invalid parameters', data: null });
+        if (!dbResDetail) {
+          return reply.code(404).send({ code: -1, msg: 'IPTV source not found', data: null });
         }
 
-        const parseRes = await convertToStandard(api, type as IIptvType);
-        if (isArrayEmpty(parseRes)) {
+        const { api, type, headers: userConfiguredHeaders } = dbResDetail;
+
+        if (isStrEmpty(api) || !isNumber(type)) {
+          return reply.code(400).send({ code: -1, msg: 'Invalid api or type', data: null });
+        }
+
+        const parsedChannels = await convertToStandard(api, type as IIptvType, userConfiguredHeaders);
+
+        if (isArrayEmpty(parsedChannels)) {
           return reply.code(200).send({ code: 0, msg: 'ok', data: { success: false } });
         }
 
-        await dbService.channel.set(parseRes as IModels['channel'][]);
+        await dbService.channel.set(parsedChannels as IModels['channel'][]);
+
         await dbService.setting.update({ key: 'defaultIptv', value: id });
 
         return reply.code(200).send({ code: 0, msg: 'ok', data: { success: true } });

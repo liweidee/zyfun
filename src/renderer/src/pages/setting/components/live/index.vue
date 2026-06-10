@@ -162,7 +162,10 @@ const fetchTable = async () => {
 
 const createItem = async (doc: IModels['iptv']) => {
   try {
-    await addIptv(doc);
+    await addIptv({
+      ...doc,
+      headers: parseHeaders(doc.headers),
+    });
     MessagePlugin.success(`${t('common.success')}`);
   } catch (error) {
     console.error('Fail to create item', error);
@@ -182,7 +185,13 @@ const deleteItem = async (ids: string[]) => {
 
 const updateItem = async (ids: string[], doc: Partial<IModels['iptv']>) => {
   try {
-    await putIptv({ id: ids, doc });
+    await putIptv({
+      id: ids,
+      doc: {
+        ...doc,
+        headers: parseHeaders(doc.headers),
+      },
+    });
     MessagePlugin.success(`${t('common.success')}`);
   } catch (error) {
     console.error('Fail to update item', error);
@@ -282,6 +291,13 @@ const handleOperation = async (type: string, payload: any) => {
       dialogState.value.formType = 'edit';
       dialogState.value.currentId = payload.id;
       const cloneDoc = cloneDeep(payload);
+
+      if (cloneDoc.headers && typeof cloneDoc.headers === 'object') {
+        cloneDoc.headers = stringifyHeaders(cloneDoc.headers);
+      } else if (!cloneDoc.headers) {
+        cloneDoc.headers = '';
+      }
+
       delete cloneDoc.id;
       formData.value = cloneDoc;
       dialogState.value.visibleForm = true;
@@ -320,6 +336,24 @@ const handlePageChange = (page: number, pageSize: number) => {
   pagination.value.current = page;
   pagination.value.pageSize = pageSize;
   fetchTable();
+};
+
+const parseHeaders = (headers: string | Record<string, any> | undefined): Record<string, any> => {
+  if (!headers) return {};
+  if (typeof headers === 'object') return headers;
+  if (typeof headers === 'string' && headers.trim()) {
+    try {
+      return JSON.parse(headers);
+    } catch {
+      return {};
+    }
+  }
+  return {};
+};
+
+const stringifyHeaders = (headers: Record<string, any> | undefined): string => {
+  if (!headers || Object.keys(headers).length === 0) return '';
+  return JSON.stringify(headers, null, 2);
 };
 </script>
 <style lang="less" scoped>

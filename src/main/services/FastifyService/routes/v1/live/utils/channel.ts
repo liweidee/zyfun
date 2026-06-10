@@ -194,7 +194,11 @@ const txtToStandard = (text: string): IChannelItem[] => {
  * @param type - 1: remote 2: local 3: manual
  * @returns Parsed channel
  */
-export const convertToStandard = async (path: string, type: IIptvType): Promise<IChannelItem[]> => {
+export const convertToStandard = async (
+  path: string,
+  type: IIptvType,
+  userHeaders?: Record<string, any>,
+): Promise<IChannelItem[]> => {
   let content: string | null = null;
 
   switch (type) {
@@ -219,6 +223,17 @@ export const convertToStandard = async (path: string, type: IIptvType): Promise<
   if (isNil(content) || isStrEmpty(content)) return [];
 
   const list = content.includes('#EXTM3U') ? m3uToStandard(content) : txtToStandard(content);
+
+  // 合并用户配置的 headers
+  if (userHeaders && Object.keys(userHeaders).length > 0) {
+    return list.map((item) => ({
+      ...item,
+      headers: {
+        ...userHeaders,
+        ...item.headers,
+      },
+    }));
+  }
 
   return list;
 };

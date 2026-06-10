@@ -14,9 +14,11 @@ export default {
     },
     epg: '节目',
     logo: '台标',
+    headers: '请求头',
   },
   popup: {
     epg: `diyp需配置参数{'{'}name{'}'}(标识需查询频道名称)和{'{'}date{'}'}(标识需查询频道日期); xml无需配置参数`,
     logo: `需配置参数{'{'}name{'}'}(标识需查询台标名称)`,
+    headers: '设置请求头，用于模拟浏览器访问，格式为 JSON',
   },
 };

@@ -14,9 +14,11 @@ export default {
     },
     epg: '節目',
     logo: '臺標',
+    headers: '請求頭',
   },
   popup: {
     epg: `diyp需配置參數{'{'}name{'}'}(標識需查詢頻道名稱)和{'{'}date{'}'}(標識需查詢頻道日期); xml無需配置參數`,
     logo: `需配置參數{'{'}name{'}'}(標識需查詢臺標名稱)`,
+    headers: '設置請求頭，用於模擬瀏覽器訪問，格式為 JSON',
   },
 };

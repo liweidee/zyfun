@@ -80,6 +80,19 @@
             </template>
             <t-input v-model="formData.epg" />
           </t-form-item>
+          <t-form-item name="headers">
+            <template #label>
+              {{ $t('pages.live.field.headers') }}
+              <t-popup destroy-on-close attach=".t-form-item__headers" :content="$t('pages.live.popup.headers')">
+                <info-circle-icon />
+              </t-popup>
+            </template>
+            <t-textarea
+              v-model="formData.headers"
+              placeholder='{"User-Agent": "Mozilla/5.0"}'
+              :autosize="{ minRows: 2, maxRows: 4 }"
+            />
+          </t-form-item>
         </t-form>
       </div>
     </template>
@@ -125,6 +138,20 @@ const RULES = {
   api: [{ required: true }],
   logo: [{ url: { protocols: ['http', 'https'] } }],
   epg: [{ url: { protocols: ['http', 'https'] } }],
+  headers: [
+    {
+      validator: (val: string) => {
+        if (!val || val.trim() === '') return true;
+        try {
+          JSON.parse(val);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      message: '请输入有效的 JSON 格式',
+    },
+  ] as const,
 };
 
 const formRef = useTemplateRef<FormInstanceFunctions>('formRef');

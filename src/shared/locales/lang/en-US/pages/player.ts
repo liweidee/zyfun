@@ -17,6 +17,21 @@ export default {
     channel: 'Channel',
     group: 'Group',
   },
+  manga: {
+    prevPage: 'Previous',
+    nextPage: 'Next',
+    pageInfo: '{current} / {total}',
+    emptyDesc: 'Please select a manga chapter from the right side',
+  },
+  novel: {
+    prevChapter: 'Previous Chapter',
+    nextChapter: 'Next Chapter',
+    chapterPlaceholder: 'Select Chapter',
+    fontSizeDecrease: 'A-',
+    fontSizeIncrease: 'A+',
+    fontSize: 'Font Size',
+    emptyDesc: 'Please select a novel chapter from the right side',
+  },
   header: {
     backMain: 'BackToMain',
   },
