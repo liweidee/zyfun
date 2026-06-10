@@ -338,7 +338,7 @@ const handlePageChange = (page: number, pageSize: number) => {
   fetchTable();
 };
 
-const parseHeaders = (headers: string | Record<string, any> | undefined): Record<string, any> => {
+const parseHeaders = (headers: string | Record<string, any> | undefined | null): Record<string, any> => {
   if (!headers) return {};
   if (typeof headers === 'object') return headers;
   if (typeof headers === 'string' && headers.trim()) {
@@ -351,7 +351,7 @@ const parseHeaders = (headers: string | Record<string, any> | undefined): Record
   return {};
 };
 
-const stringifyHeaders = (headers: Record<string, any> | undefined): string => {
+const stringifyHeaders = (headers: Record<string, any> | undefined | null): string => {
   if (!headers || Object.keys(headers).length === 0) return '';
   return JSON.stringify(headers, null, 2);
 };
