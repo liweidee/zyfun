@@ -24,7 +24,7 @@
             <span class="tip">{{ $t('pages.moment.star.title') }}</span>
           </div>
           <t-divider layout="vertical" />
-          <div class="paction-item share" @click="MessagePlugin.info('暂不支持分享')">
+          <div class="paction-item share" @click="handleCopyShareLink">
             <share1-icon class="icon" />
             <span class="tip">{{ $t('component.share.title') }}</span>
           </div>
@@ -435,27 +435,30 @@ const handleSwitchSeriesTab = (val: string) => {
 //   active.value.download = true;
 // };
 
-// 分享：复制当前章节链接
-// const handleCopyShareLink = async () => {
-//   try {
-//     let shareUrl = videoData.value.url;
-//     if (!shareUrl && active.value.filmIndex) {
-//       const [, link] = active.value.filmIndex.split('$');
-//       shareUrl = link;
-//     }
+// 分享：复制当前章节内容
+const handleCopyShareLink = async () => {
+  try {
+    let shareInfo = videoData.value.url;
+    if (!shareInfo && active.value.filmIndex) {
+      const [, info] = active.value.filmIndex.split('$');
+      shareInfo = info;
+    }
 
-//     if (!shareUrl) {
-//       MessagePlugin.warning('暂无分享链接');
-//       return;
-//     }
+    if (!shareInfo) {
+      MessagePlugin.warning('暂无分享内容');
+      return;
+    }
 
-//     await navigator.clipboard.writeText(shareUrl);
-//     MessagePlugin.success('链接已复制到剪贴板');
-//   } catch (error) {
-//     console.error('[Share] 复制失败:', error);
-//     MessagePlugin.error('复制失败，请手动复制');
-//   }
-// };
+    // 净化内容
+    shareInfo = shareInfo.replace(/novel:\/\/|\\n|\s/g, '');
+
+    await navigator.clipboard.writeText(shareInfo);
+    MessagePlugin.success('已复制到剪贴板');
+  } catch (error) {
+    console.error('[Share] 复制失败:', error);
+    MessagePlugin.error('复制失败，请手动复制');
+  }
+};
 
 const handleSettingDialog = () => {
   settingFormData.value = {

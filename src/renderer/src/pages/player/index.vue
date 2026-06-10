@@ -437,8 +437,7 @@ const handlePlayerSeek = (time: number) => playerRef.value?.seek(time);
     }
   }
 
-  .manga-controls,
-  .novel-controls {
+  .manga-controls {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -449,40 +448,6 @@ const handlePlayerSeek = (time: number) => playerRef.value?.seek(time);
       display: inline-flex;
       align-items: center;
       gap: 4px;
-    }
-  }
-
-  .novel-controls {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: var(--td-size-4);
-    padding: var(--td-comp-paddingTB-s) 0;
-
-    :deep(.t-button) .t-button__text {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-  }
-
-  .novel-font-controls {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: var(--td-size-4);
-
-    .t-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .font-size-indicator {
-      min-width: 50px;
-      text-align: center;
-      font-size: var(--td-font-size-body-medium);
-      color: var(--td-text-color-secondary);
     }
   }
 }
@@ -530,6 +495,12 @@ const handlePlayerSeek = (time: number) => playerRef.value?.seek(time);
     align-items: center;
     gap: var(--td-size-4);
     padding: var(--td-comp-paddingTB-s) 0;
+
+    :deep(.t-button) .t-button__text {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
   }
 
   .novel-font-controls {
