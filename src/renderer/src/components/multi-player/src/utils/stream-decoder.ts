@@ -44,6 +44,15 @@ const streamConfig = {
   hls: (headers = {}): HlsConfig => {
     return {
       ...Hlsjs.DefaultConfig,
+      // 缓冲优化配置
+      maxBufferLength: 60, // 最大向前缓冲60秒（默认30秒）
+      maxMaxBufferLength: 120, // 最大允许缓冲120秒（默认60秒）
+      maxBufferSize: 60 * 1000 * 1000, // 最大缓冲60MB（默认60）
+      backBufferLength: 90, // 最大向后缓冲90MB（默认Infinity）
+      // 直播延迟配置
+      liveSyncDuration: 30, // 直播延迟30秒
+      liveMaxLatencyDuration: 60, // 最大延迟60秒
+      liveDurationInfinity: false, // 禁止无限缓冲
       ...{
         // Web Worker
         enableWorker: true,
@@ -160,6 +169,22 @@ const streamDecoder = {
       const { autoplay = false, isLive = false, options = {}, headers = {} } = config;
 
       const dash = Dashjs.MediaPlayer().create();
+      // 缓冲优化配置
+      dash.updateSettings({
+        streaming: {
+          buffer: {
+            bufferTimeDefault: 60, // 目标缓冲 60 秒
+            bufferTimeAtTopQuality: 120, // 最高画质缓冲 120 秒
+            stableBufferTime: 60, // 稳定缓冲 60 秒
+          },
+          delay: {
+            liveDelay: isLive ? 30 : undefined, // 直播延迟 30 秒
+          },
+          liveCatchup: {
+            maxSpeed: 1.1, // 追赶速度
+          },
+        },
+      });
       if (Object.keys(headers).length > 0) {
         // 新 v5
         const interceptor = (request) => {
@@ -192,7 +217,6 @@ const streamDecoder = {
         // );
       }
       dash.initialize(video, url, autoplay);
-      dash.updateSettings({});
       return dash;
     } else {
       console.warn('dash is not supported.');
