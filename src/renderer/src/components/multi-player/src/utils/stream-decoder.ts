@@ -175,13 +175,18 @@ const streamDecoder = {
           buffer: {
             bufferTimeDefault: 60, // 目标缓冲 60 秒
             bufferTimeAtTopQuality: 120, // 最高画质缓冲 120 秒
-            stableBufferTime: 60, // 稳定缓冲 60 秒
           },
           delay: {
-            liveDelay: isLive ? 30 : undefined, // 直播延迟 30 秒
+            liveDelay: isLive ? 15 : undefined, // 直播延迟 15 秒
           },
           liveCatchup: {
-            maxSpeed: 1.1, // 追赶速度
+            enabled: true, // 启用追帧
+            playbackRate: {
+              min: 0.95, // 最小播放速率
+              max: 1.05, // 最大播放速率
+            },
+            maxDrift: 5, // 最大允许漂移（秒）
+            liveThreshold: 3, // 开始追帧的延迟阈值（秒）
           },
         },
       });
