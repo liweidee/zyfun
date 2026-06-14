@@ -50,8 +50,6 @@ const streamConfig = {
       maxBufferSize: 60 * 1000 * 1000, // 最大缓冲60MB（默认60）
       backBufferLength: 90, // 最大向后缓冲90MB（默认Infinity）
       // 直播延迟配置
-      liveSyncDuration: 30, // 直播延迟30秒
-      liveMaxLatencyDuration: 60, // 最大延迟60秒
       liveDurationInfinity: false, // 禁止无限缓冲
       ...{
         // Web Worker
